@@ -18,7 +18,7 @@ from os import makedirs
 from os.path import exists, join
 
 from flask import request
-from werkzeug import secure_filename
+from werkzeug.utils import secure_filename
 
 from flask_pypi_proxy.utils import get_package_path
 from flask_pypi_proxy.app import app
