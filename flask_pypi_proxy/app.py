@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 
-''' The main Flask application which take care of reading the configuration.
-'''
+""" The main Flask application which take care of reading the configuration.
+"""
 
 import os
 import json
 import logging
 from flask import Flask
 
+
 def read_configuration(app, pypi_url='http://pypi.python.org',
                        private_eggs=[]):
-    ''' Reads the configuration by using the system file or the configuration
+    """ Reads the configuration by using the system file or the configuration
     file.
 
     :param :class:`Flask` app: the app to where set the configuration values
@@ -19,7 +20,7 @@ def read_configuration(app, pypi_url='http://pypi.python.org',
 
     :param str private_eggs: the list of the name of the projects for which
                              the **pypi_url** won't be used.
-    '''
+    """
     filepath = os.environ.get('FLASK_PYPI_PROXY_CONFIG')
     if filepath:
         # then the configuration file is used
@@ -41,8 +42,8 @@ def read_configuration(app, pypi_url='http://pypi.python.org',
                                                            private_eggs)
             app.config['BASE_FOLDER_PATH'] = configuration['BASE_FOLDER_PATH']
             app.config['SHOULD_USE_EXISTING'] = configuration.get(
-                                                        'SHOULD_USE_EXISTING',
-                                                        False)
+                'SHOULD_USE_EXISTING',
+                False)
             app.config['PYPI_URL'] = configuration.get('PYPI_URL', pypi_url)
             app.config['LOGGING_PATH'] = configuration.get('LOGGING_PATH')
             app.config['LOGGING_LEVEL'] = configuration.get('LOGGING_LEVEL',
@@ -74,23 +75,24 @@ def read_configuration(app, pypi_url='http://pypi.python.org',
         app.config['PYPI_URL'] = os.environ.get('PYPI_PROXY_PYPI_URL',
                                                 pypi_url)
         app.config['SHOULD_USE_EXISTING'] = os.environ.get(
-                                            'PYPI_PROXY_SHOULD_USE_EXISTING',
-                                            False)
+            'PYPI_PROXY_SHOULD_USE_EXISTING',
+            False)
 
     if not app.config['PYPI_URL'].endswith('/'):
         app.config['PYPI_URL'] = app.config['PYPI_URL'] + '/'
 
 
 def configure_logging(app):
-    ''' Setups the logging that will be used by the views to log the
+    """ Setups the logging that will be used by the views to log the
     different problems that it might have.
 
     :param app: the application that will be used to register the URLs.
-    '''
+    """
     if not app.debug:
         logging.basicConfig(filename=app.config['LOGGING_PATH'],
                             level=getattr(logging, app.config['LOGGING_LEVEL']),
                             format='%(asctime)s [%(levelname)s] %(message)s')
+
 
 app = Flask(__name__)
 read_configuration(app)

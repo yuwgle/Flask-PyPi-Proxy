@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 
-''' Gets the list of the packages that can be downloaded.
-'''
+""" Gets the list of the packages that can be downloaded.
+"""
 
-import urllib
-import urlparse
+from urllib.parse import urlparse, urlsplit, urljoin, quote
 from collections import namedtuple
 from os import listdir
 from os.path import join, exists, basename
@@ -13,19 +12,20 @@ from os.path import join, exists, basename
 from bs4 import BeautifulSoup
 from flask import abort, render_template
 from requests import get
-
+from functools import partial
 from flask_pypi_proxy.app import app
 from flask_pypi_proxy.utils import (get_package_path, get_base_path,
                                     is_private, url_is_egg_file)
 
 
-VersionData = namedtuple('VersionData', ['name', 'md5', 'external_link'])
+get = partial(get, headers={'User-Agent': 'curl/7.29.0'})
+VersionData = namedtuple('VersionData', ['name', 'sha256', 'external_link'])
 
 
 @app.route('/simple/')
 def simple():
-    ''' Return the template which list all the packages that are installed
-    '''
+    """ Return the template which list all the packages that are installed
+    """
     packages = []
     for filename in listdir(get_base_path()):
         packages.append(filename)
@@ -36,26 +36,26 @@ def simple():
 
 @app.route('/simple/<package_name>/')
 def simple_package(package_name):
-    ''' Given a package name, returns all the versions for downloading
+    """ Given a package name, returns all the versions for downloading
     that package.
 
-    If the package doesn't exists, then it will call PyPI (CheeseShop).
+    If the package doesn't exists, then it will call PyPi (CheeseShop).
     But if the package exists in the local path, then it will get all
     the versions for the local package.
 
     This will take into account if the egg is private or if it is a normal
-    egg that was uploaded to PyPI. This is important to take into account
-    the version of the eggs. For example, a project requires requests==1.0.4
-    and another package uses requests==1.0.3. Then the instalation of the
-    second package will fail because it wasn't downloaded and the **requests**
+    egg that was uploaded to PyPi. This is important to take into account
+    the version of the eggs. For example, a proyect requires request==1.0.4
+    and another package uses request==1.0.3. Then the instalation of the
+    second package will fail because it wasn't downloaded an the **request**
     folder only has the 1.0.4 version.
 
     To solve this problem, the system uses 2 different kinds of eggs:
 
     * private eggs: are the eggs that you uploaded to the private repo.
-    * normal eggs: are the eggs that are downloaded from PyPI.
+    * normal eggs: are the eggs that are downloaded from pypi.
 
-    So the normal eggs will always get the simple page from the PyPI repo,
+    So the normal eggs will always get the simple page from the pypi repo,
     will the private eggs will always be read from the filesystem.
 
 
@@ -64,7 +64,7 @@ def simple_package(package_name):
                           else.
 
     :return: a template with all the links to download the packages.
-    '''
+    """
     app.logger.debug('Requesting index for: %s', package_name)
     package_folder = get_package_path(package_name)
     if (is_private(package_name) or (
@@ -80,17 +80,17 @@ def simple_package(package_name):
         )
 
         for filename in listdir(package_folder):
-            if not filename.endswith('.md5'):
-                # I only read .md5 files so I skip this egg (or tar,
+            if not filename.endswith('.sha256'):
+                # I only read .sha256 files so I skip this egg (or tar,
                 # or zip) file
                 continue
 
-            with open(join(package_folder, filename)) as md5_file:
-                md5 = md5_file.read(-1)
+            with open(join(package_folder, filename)) as sha256_file:
+                sha256 = sha256_file.read(-1)
 
-            # remove .md5 extension
+            # remove .sha256 extension
             name = filename[:-4]
-            data = VersionData(name, md5, None)
+            data = VersionData(name, sha256, None)
             package_versions.append(data)
 
         return render_template('simple_package.html', **template_data)
@@ -112,7 +112,7 @@ def simple_package(package_name):
             # take into account this change. For example, this happens
             # when requesting flask-bcrypt and on Pypi the request is
             # redirected to Flask-Bcrypt
-            package_name = urlparse.urlparse(response.url).path
+            package_name = urlparse(response.url).path
             package_name = package_name.replace('/simple/', '')
             package_name = package_name.replace('/', '')
 
@@ -122,7 +122,7 @@ def simple_package(package_name):
         # contains the list of pacges whih where checked because
         # on the link they had the information of
         visited_download_pages = set()
-        soup = BeautifulSoup(content)
+        soup = BeautifulSoup(content, features="html.parser")
         package_versions = []
 
         for panchor in soup.find_all('a'):
@@ -133,47 +133,47 @@ def simple_package(package_name):
             href = panchor.get('href')
             app.logger.debug('Found the link: %s', href)
             if href.startswith('../../packages/'):
-                # then the package is hosted on PyPI.
+                # then the package is hosted on pypi.
                 pk_name = basename(href)
-                pk_name, md5_data = pk_name.split('#md5=')
-                pk_name = pk_name.replace('#md5=', '')
+                pk_name, sha256_data = pk_name.split('#sha256=')
+                pk_name = pk_name.replace('#sha256=', '')
 
-                # remove md5 part to make the url shorter.
-                split_data = urlparse.urlsplit(href)
-                absolute_url = urlparse.urljoin(url, split_data.path)
+                # remove sha256 part to make the url shorter.
+                split_data = urlsplit(href)
+                absolute_url = urljoin(url, split_data.path)
 
-                external_link= urllib.urlencode({'remote': absolute_url})
-                data = VersionData(pk_name, md5_data, external_link)
+                external_link= 'remote=' + quote(absolute_url, safe='')
+                data = VersionData(pk_name, sha256_data, external_link)
                 package_versions.append(data)
                 continue
 
-            parsed = urlparse.urlparse(href)
+            parsed = urlparse(href)
             if parsed.hostname:
                 # then the package had a full path to the file
                 if parsed.hostname == 'pypi.python.org':
-                    # then it is hosted on the PyPI server, so I change
+                    # then it is hosted on the pypi server, so I change
                     # it to make it a relative url
                     pk_name = basename(parsed.path)
-                    if '#md5=' in parsed.path:
-                        pk_name, md5_data = pk_name.split('#md5=')
-                        pk_name = pk_name.replace('#md5=', '')
+                    if '#sha256=' in parsed.path:
+                        pk_name, sha256_data = pk_name.split('#sha256=')
+                        pk_name = pk_name.replace('#sha256=', '')
                     else:
-                        md5_data = ''
+                        sha256_data = ''
 
-                    absolute_url = urlparse.urljoin(url, parsed.path)
-                    external_link= urllib.urlencode({'remote': absolute_url})
-                    data = VersionData(pk_name, md5_data, external_link)
+                    absolute_url = urljoin(url, parsed.path)
+                    external_link = 'remote=' + quote(absolute_url)
+                    data = VersionData(pk_name, sha256_data, external_link)
                     package_versions.append(data)
 
                 else:
                     # the python package is hosted on another server
-                    # that isn't PyPI. The packages that don't have
-                    # rel=download are links to some pages
+                    # that isn't pypi. The packages that doesn't have
+                    # rel=download, then they are links to some pages
                     if panchor.get('rel') and panchor.get('rel')[0] == 'download':
                         if url_is_egg_file(parsed.path):
                             external_links.add(href)
                         else:
-                            # href points to an external page where the links
+                            # href point to an external page where the links
                             # to download the package will be found
                             if href not in visited_download_pages:
                                 visited_download_pages.add(href)
@@ -185,12 +185,12 @@ def simple_package(package_name):
             existing_value = filter(lambda pv: pv.name == package_version,
                                     package_versions)
             if existing_value:
-                # if the package already exists on PyPI, then
-                # use its version instead of using the one that is
+                # if the package already exists on pypi, then
+                # use it's version instead of using the one that is
                 # hosted on a remote server
                 continue
 
-            external_link = urllib.urlencode({'remote': external_url})
+            external_link = 'remote=' + quote(external_url)
             data = VersionData(package_version, '', external_link)
             package_versions.append(data)
 
@@ -205,8 +205,8 @@ def simple_package(package_name):
 
 
 def find_external_links(url):
-    '''Look for links to files in a web page and returns a set.
-    '''
+    """Look for links to files in a web page and returns a set.
+    """
     links = set()
     try:
         response = get(url)
@@ -240,18 +240,18 @@ def find_external_links(url):
 
 
 def get_absolute_url(url, root_url):
-    '''Make relative URLs absolute
+    """Make relative URLs absolute
 
     >>> get_absolute_url('/src/blah.zip', 'https://awesome.org/')
     'https://awesome.org/src/blah.zip'
     >>> get_absolute_url('http://foo.bar.org/blah.zip', 'https://awesome.org/')
     'http://foo.bar.org/blah.zip'
-    '''
-    parsed = urlparse.urlparse(url)
+    """
+    parsed = urlparse(url)
     if url.startswith('//'):
         # this are the URLS parsed from code.google.com
         return 'http:' + url
     elif parsed.scheme:
         return url
     else:
-        return urlparse.urljoin(root_url, parsed.path)
+        return urljoin(root_url, parsed.path)

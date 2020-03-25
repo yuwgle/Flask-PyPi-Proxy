@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-''' Handles the submition of the different packages.
+""" Handles the submition of the different packages.
 
 This is used on **register** o **upload**.
 
@@ -12,7 +12,7 @@ For example:
     python setup.py sdist upload
 
 
-'''
+"""
 
 from os import makedirs
 from os.path import exists, join
@@ -34,6 +34,6 @@ def index():
         file = request.files['content']
         filename = secure_filename(file.filename)
         file.save(join(path, filename))
-        with open(join(path, filename + '.md5'), 'w') as md5_file:
-            md5_file.write(request.form['md5_digest'])
+        with open(join(path, filename + '.sha256'), 'w') as sha256_file:
+            sha256_file.write(request.form['sha256_digest'])
     return 'Registered'

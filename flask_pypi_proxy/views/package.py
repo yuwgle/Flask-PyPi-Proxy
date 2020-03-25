@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 
-''' Handles downloading a package file.
+""" Handles downloading a package file.
 
 This is called by easy_install or pip after calling the simple, and getting
 the version of the package to download.
 
-'''
+"""
 
 import magic
 from flask import make_response, request, abort
+from urllib.parse import unquote
 from flask_pypi_proxy.app import app
 from flask_pypi_proxy.utils import (get_base_path, get_package_path,
-                                    get_md5_for_content)
+                                    get_sha256_for_content)
 from os import makedirs
 from os.path import join, exists
 from requests import get, head
@@ -20,7 +21,7 @@ from requests import get, head
 @app.route('/packages/<package_type>/<letter>/<package_name>/<package_file>',
            methods=['GET', 'HEAD'])
 def package(package_type, letter, package_name, package_file):
-    ''' Downloads the egg
+    """ Downloads the egg
 
     :param str package_type: the nature of the package. For example:
                               'source' or '2.7'
@@ -29,9 +30,9 @@ def package(package_type, letter, package_name, package_file):
     :param str package_name: the name of the package. For example: Django
     :param str package_file: the name of the package and it's version. For
                              example: Django-1.5.0.tar.gz
-    '''
+    """
     egg_filename = join(get_base_path(), package_name, package_file)
-    url = request.args.get('remote')
+    url = unquote(request.args.get('remote'))
 
     if request.method == 'HEAD':
         # in this case the content type of the file is what is
@@ -51,7 +52,7 @@ def package(package_type, letter, package_name, package_file):
         path = get_package_path(package_name)
         path = join(path, package_file)
         with open(path, 'rb') as egg:
-            content = egg.read(-1)
+            content = egg.read()
         mimetype = magic.from_file(egg_filename, mime=True)
         return _respond(content, mimetype)
 
@@ -73,16 +74,16 @@ def package(package_type, letter, package_name, package_file):
         if not exists(package_path):
             makedirs(package_path)
 
-        with open(egg_filename, 'w') as egg_file:
+        with open(egg_filename, 'wb') as egg_file:
             egg_file.write(pypi_response.content)
 
-        with open(egg_filename) as egg_file:
-            filecontent = egg_file.read(-1)
+        with open(egg_filename, 'rb') as egg_file:
+            filecontent = egg_file.read()
             mimetype = magic.from_file(egg_filename, mime=True)
 
-        with open(egg_filename + '.md5', 'w') as md5_output:
-            md5 = get_md5_for_content(filecontent)
-            md5_output.write(md5)
+        with open(egg_filename + '.sha256', 'w') as sha256_output:
+            sha256 = get_sha256_for_content(filecontent)
+            sha256_output.write(sha256)
 
         return _respond(filecontent, mimetype)
 
