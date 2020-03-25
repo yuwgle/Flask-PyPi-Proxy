@@ -5,3 +5,4 @@ Werkzeug>=0.8.3
 beautifulsoup4>=4.2.0
 python-magic>=0.4.3
 requests>=1.2.1
+gunicorn>=20.0.4

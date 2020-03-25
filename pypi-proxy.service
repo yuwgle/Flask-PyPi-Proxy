@@ -1,0 +1,11 @@
+[Unit]
+Description=pypi proxy
+After=Network.target
+
+[Service]
+EnvironmentFile=/etc/sysconfig/pypi_proxy
+WorkDirectory=/opt/pypi-proxy
+ExecStart=/usr/bin/python3.6 /usr/bin/gunicorn -w 20 server:app
+
+[Install]
+WantedBy=multi-user.target
