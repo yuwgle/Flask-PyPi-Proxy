@@ -5,7 +5,7 @@ After=Network.target
 [Service]
 EnvironmentFile=/etc/sysconfig/pypi_proxy
 WorkingDirectory=/opt/pypi-proxy
-ExecStart=/opt/pypi-proxy/venv/bin/gunicorn -w 20 -b 127.0.0.1:6000 server:app
+ExecStart=/opt/pypi-proxy/venv/bin/gunicorn -w 20 -b 127.0.0.1:8000 server:app
 Restart=on-failure
 RestartSec=10
 
