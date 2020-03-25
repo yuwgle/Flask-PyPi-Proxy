@@ -16,6 +16,10 @@ from flask_pypi_proxy.utils import (get_base_path, get_package_path,
 from os import makedirs
 from os.path import join, exists
 from requests import get, head
+from functools import partial
+
+
+get = partial(get, headers={'User-Agent': 'curl/7.29.0'})
 
 
 @app.route('/packages/<package_type>/<letter>/<package_name>/<package_file>',
