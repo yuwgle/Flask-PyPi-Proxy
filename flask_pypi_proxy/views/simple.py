@@ -89,7 +89,7 @@ def simple_package(package_name):
                 sha256 = sha256_file.read(-1)
 
             # remove .sha256 extension
-            name = filename[:-4]
+            name = filename[:-7]
             data = VersionData(name, sha256, None)
             package_versions.append(data)
 
